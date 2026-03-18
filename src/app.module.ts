@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { DrizzleModule } from './db/drizzle.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { FirebaseAuthGuard } from './common/guards/firebase-auth/firebase-auth.guard';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { FirebaseAuthGuard } from './common/guards/firebase-auth/firebase-auth.g
     }),
     DrizzleModule,
     FirebaseModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
@@ -30,4 +32,4 @@ import { FirebaseAuthGuard } from './common/guards/firebase-auth/firebase-auth.g
     AppService,
   ],
 })
-export class AppModule {}
+export class AppModule { }
