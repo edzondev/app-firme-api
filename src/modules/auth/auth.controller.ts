@@ -3,9 +3,9 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from 'src/common/decorators/current-user/current-user.decorator';
 import { Public } from 'src/common/decorators/public/public.decorator';
 
-@Controller('api/auth')
+@Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   /**
    * POST /api/auth/register
@@ -30,9 +30,7 @@ export class AuthController {
    * Retorna el perfil del usuario actual.
    */
   @Get('me')
-  async getProfile(
-    @CurrentUser('firebaseUid') firebaseUid: string,
-  ) {
+  async getProfile(@CurrentUser('firebaseUid') firebaseUid: string) {
     return this.authService.getUserByFirebaseUid(firebaseUid);
   }
 

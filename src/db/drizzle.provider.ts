@@ -1,4 +1,5 @@
 import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { ConfigService } from '@nestjs/config';
 import postgres from 'postgres';
 import * as schema from './schema';
 
@@ -9,15 +10,14 @@ export type DrizzleDB = PostgresJsDatabase<typeof schema>;
 
 export const DrizzleProvider = {
   provide: DRIZZLE,
-  useFactory: () => {
-    const connectionString = process.env.DATABASE_URL;
+  inject: [ConfigService],
+  useFactory: (configService: ConfigService) => {
+    const connectionString = configService.getOrThrow('DATABASE_URL');
 
     if (!connectionString) {
       throw new Error('DATABASE_URL is not set');
     }
 
-    // Crear conexión con postgres.js
-    // max: 10 limita las conexiones (Supabase free tier permite ~15)
     const client = postgres(connectionString, {
       max: 10,
       idle_timeout: 20,
@@ -25,7 +25,6 @@ export const DrizzleProvider = {
       prepare: false,
     });
 
-    // Crear instancia de Drizzle con el schema
     return drizzle(client, { schema });
   },
 };

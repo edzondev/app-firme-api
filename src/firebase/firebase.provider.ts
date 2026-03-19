@@ -48,7 +48,9 @@ export class FirebaseAdminProvider implements OnModuleInit {
    * Lanza error si es inválido o expirado.
    */
   async verifyToken(idToken: string): Promise<admin.auth.DecodedIdToken> {
-    return this.app.auth().verifyIdToken(idToken);
+    const result = await this.app.auth().verifyIdToken(idToken);
+    console.log('Token verificado. UID:', result);
+    return result;
   }
 
   /**

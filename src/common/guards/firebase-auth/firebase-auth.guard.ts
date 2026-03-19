@@ -38,6 +38,7 @@ export class FirebaseAuthGuard implements CanActivate {
     // Extraer el token (quitar "Bearer ")
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const token = authHeader.split('Bearer ')[1];
+    console.log('[DEV] Firebase JWT token:', token);
 
     try {
       // Verificar el token con Firebase Admin
