@@ -11,6 +11,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { TripModule } from './modules/trip/trip.module';
+import { SosModule } from './modules/sos/sos.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { TripModule } from './modules/trip/trip.module';
     ContactsModule,
     TrackingModule,
     TripModule,
+    SosModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

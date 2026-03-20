@@ -18,6 +18,7 @@ import type {
 } from './tracking.types';
 import { LocationBuffer } from './location/location.buffer';
 import { FirebaseAdminProvider } from 'src/firebase/firebase.provider';
+import { SosService } from '../sos/sos.service';
 
 @WebSocketGateway({
   namespace: '/tracking',
@@ -37,11 +38,8 @@ export class TrackingGateway
   constructor(
     private readonly buffer: LocationBuffer,
     private readonly firebase: FirebaseAdminProvider,
+    private readonly sosService: SosService,
   ) {}
-
-  // ============================================
-  // CONEXIÓN / DESCONEXIÓN
-  // ============================================
 
   /**
    * Se ejecuta cuando un cliente se conecta al WebSocket.
@@ -52,7 +50,7 @@ export class TrackingGateway
       this.logger.log(`Client connected: ${client.id}`);
       // El token viene en client.handshake.auth.token
       // (lo envía el frontend al conectarse)
-      /* const token = client.handshake.auth?.token;
+      const token = client.handshake.auth?.token;
 
       if (!token) {
         this.logger.warn(`Client ${client.id}: no token, disconnecting`);
@@ -64,11 +62,14 @@ export class TrackingGateway
       // Verificar con Firebase
       const decoded = await this.firebase.verifyToken(token);
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Decoded token:', decoded);
+      }
       // Guardar info del usuario en el socket para uso posterior
       client.data.firebaseUid = decoded.uid;
       client.data.email = decoded.email;
 
-      this.logger.log(`Client connected: ${client.id} (user: ${decoded.uid})`);*/
+      this.logger.log(`Client connected: ${client.id} (user: ${decoded.uid})`);
     } catch (error) {
       this.logger.warn(`Client ${client.id}: invalid token, disconnecting`);
       client.emit('error', {
@@ -86,9 +87,7 @@ export class TrackingGateway
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
-  // ============================================
   // EVENTOS DEL USUARIO (rider)
-  // ============================================
 
   /**
    * El usuario inicia un viaje y se une al room.
@@ -131,7 +130,6 @@ export class TrackingGateway
     @MessageBody() data: GPSUpdatePayload,
   ) {
     // 1. BROADCAST INMEDIATO a todos los contactos que están viendo
-    //    (0 ms de latencia, 0 escrituras a DB)
     this.server.to(`share:${data.shareToken}`).emit('location_update', {
       latitude: data.latitude,
       longitude: data.longitude,
@@ -175,14 +173,19 @@ export class TrackingGateway
       userName: client.data.email || 'Usuario',
     });
 
-    // 2. Aquí llamarías al SOSService para:
-    //    - Crear registro en tabla sos_alerts
-    //    - Enviar push notifications (Expo Push)
-    //    - Enviar SMS/WhatsApp (Twilio)
-    //    - Eso lo implementas después, por ahora el broadcast funciona
+    const result = await this.sosService.triggerSOS(client.data.firebaseUid, {
+      tripId: data.tripId,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      accuracy: data.accuracy || undefined,
+    });
 
     // Confirmar al usuario
-    return { status: 'sos_received', timestamp: new Date().toISOString() };
+    return {
+      status: 'sos_received',
+      sosAlertId: result.sosAlertId,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   /**

@@ -6,5 +6,6 @@ import { ContactsController } from './contacts.controller';
   imports: [],
   controllers: [ContactsController],
   providers: [ContactsService],
+  exports: [ContactsService],
 })
 export class ContactsModule {}
