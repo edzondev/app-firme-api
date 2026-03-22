@@ -1,4 +1,3 @@
-// src/common/decorators/public.decorator.ts
 import { SetMetadata } from '@nestjs/common';
 
 // Marca un endpoint como público (no requiere autenticación)

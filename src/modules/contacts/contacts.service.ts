@@ -19,25 +19,17 @@ export class ContactsService {
     this.logger = new Logger(ContactsService.name);
   }
 
-  async getEmergencyContacts(userId: string) {
-    this.logger.debug(`Fetching emergency contacts for user ${userId}`);
+  async getEmergencyContacts() {
+    this.logger.debug(`Fetching emergency contacts`);
 
     try {
-      const results = await this.db
-        .select()
-        .from(emergencyContacts)
-        .where(eq(emergencyContacts.userId, userId));
+      const results = await this.db.select().from(emergencyContacts);
 
-      this.logger.debug(
-        `Fetched ${results.length} emergency contacts for user ${userId}`,
-      );
+      this.logger.debug(`Fetched ${results.length} emergency contacts`);
 
       return results;
     } catch (error) {
-      this.logger.error(
-        `Error fetching emergency contacts for user ${userId}:`,
-        error,
-      );
+      this.logger.error(`Error fetching emergency contacts:`, error);
       throw new InternalServerErrorException(
         'Failed to fetch emergency contacts',
       );

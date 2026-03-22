@@ -60,20 +60,20 @@ export class TripController {
   }
 
   /**
-   * GET /api/v1/trips/history
+   * GET /api/v1/trips/history/:userId
    * Historial de viajes.
    * Free = últimos 10. Premium = paginado ilimitado.
    */
-  @Get('history')
+  @Get('history/:userId')
   async getHistory(
-    @CurrentUser('firebaseUid') firebaseUid: string,
+    @Param('userId') userId: string,
     @Query()
     query: typeof trips.$inferSelect & { page?: number; limit?: number },
   ) {
     // TODO: obtener isPremium del usuario real
     // Por ahora hardcoded false para MVP
     const isPremium = false;
-    return this.tripsService.getHistory(firebaseUid, query, isPremium);
+    return this.tripsService.getHistory(userId, query, isPremium);
   }
 
   /**

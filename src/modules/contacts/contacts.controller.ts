@@ -16,9 +16,9 @@ export class ContactsController {
     return this.contactsService.countEmergencyContacts(userId);
   }
 
-  @Get(':userId')
-  getEmergencyContacts(@Param('userId') userId: string) {
-    return this.contactsService.getEmergencyContacts(userId);
+  @Get()
+  getEmergencyContacts() {
+    return this.contactsService.getEmergencyContacts();
   }
 
   @Delete(':userId')
