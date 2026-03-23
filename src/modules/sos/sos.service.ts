@@ -96,8 +96,8 @@ export class SosService {
             .replace('{hora}', timestamp)
         : `🚨 ALERTA DE EMERGENCIA: ${user?.fullName || 'Un usuario'} ha activado SOS en Firme. Ubicación: ${mapsLink} — Hora: ${timestamp}`;
 
-    // 6. Obtener contactos y notificar
-    const userContacts = await this.contacts.getEmergencyContacts();
+    // 6. Obtener contactos y notificar (respeta límite free/premium)
+    const userContacts = await this.contacts.getShareableContacts(userId);
 
     // Notificar a cada contacto en paralelo
     const notificationResults = await Promise.allSettled(

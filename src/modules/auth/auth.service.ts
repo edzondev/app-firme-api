@@ -1,5 +1,3 @@
-// src/modules/auth/auth.service.ts
-
 import { Inject, Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDB } from 'src/db/drizzle.provider';
@@ -7,7 +5,7 @@ import { users } from 'src/db/schema';
 
 @Injectable()
 export class AuthService {
-  constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
+  constructor(@Inject(DRIZZLE) private db: DrizzleDB) { }
 
   /**
    * Crea un usuario nuevo o retorna el existente.
@@ -27,7 +25,7 @@ export class AuthService {
       .limit(1);
 
     if (existing.length > 0) {
-      return existing[0]; // Ya existe, retornarlo
+      return existing[0];
     }
 
     // Crear nuevo usuario

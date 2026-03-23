@@ -13,6 +13,7 @@ import { TrackingModule } from './modules/tracking/tracking.module';
 import { TripModule } from './modules/trip/trip.module';
 import { SosModule } from './modules/sos/sos.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     TripModule,
     SosModule,
     NotificationsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
@@ -43,4 +45,4 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     AppService,
   ],
 })
-export class AppModule {}
+export class AppModule { }

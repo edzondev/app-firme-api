@@ -5,13 +5,8 @@ import { Public } from 'src/common/decorators/public/public.decorator';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
-  /**
-   * POST /api/auth/register
-   * Se llama DESPUÉS de que el usuario se registra en Firebase.
-   * Crea la fila en tu tabla "users".
-   */
   @Post('register')
   async register(
     @CurrentUser() user: { firebaseUid: string; email: string; name: string },
@@ -25,19 +20,11 @@ export class AuthController {
     });
   }
 
-  /**
-   * GET /api/auth/me
-   * Retorna el perfil del usuario actual.
-   */
   @Get('me')
   async getProfile(@CurrentUser('firebaseUid') firebaseUid: string) {
     return this.authService.getUserByFirebaseUid(firebaseUid);
   }
 
-  /**
-   * GET /api/health
-   * Endpoint público (no requiere auth).
-   */
   @Public()
   @Get('/health')
   health() {
