@@ -19,8 +19,18 @@ export class TripService {
   }
 
   async createTrip(userId: string, dto: typeof trips.$inferInsert) {
+    // TODO: refactorizar para que el AuthGuard ponga el userId de la DB en request.user, así evitamos esta consulta extra
+    const user = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.firebaseUid, userId))
+      .limit(1);
+
+    if (!user[0]) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
     // Verificar que no tenga un viaje activo
-    const activeTrip = await this.getActiveTrip(userId);
+    const activeTrip = await this.getActiveTrip(user[0].id);
     if (activeTrip) {
       throw new BadRequestException(
         'Ya tienes un viaje activo. Termínalo antes de iniciar otro.',
@@ -48,7 +58,8 @@ export class TripService {
     const [trip] = await this.db
       .insert(trips)
       .values({
-        userId,
+        id: crypto.randomUUID(),
+        userId: user[0].id,
         externalApp: dto.externalApp as any,
         driverPlate: dto.driverPlate || null,
         driverName: dto.driverName || null,
