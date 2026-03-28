@@ -29,6 +29,7 @@ export class SosService {
 
   async triggerSOS(
     userId: string,
+    subscriptionStatus: string | null,
     dto: {
       latitude: number;
       longitude: number;
@@ -40,7 +41,6 @@ export class SosService {
       `SOS TRIGGERED by user ${userId} at ${dto.latitude},${dto.longitude}`,
     );
 
-    // 1. Verificar que no tenga un SOS activo
     const activeSOS = await this.getActiveSOS(userId);
     if (activeSOS) {
       throw new BadRequestException(
@@ -48,7 +48,6 @@ export class SosService {
       );
     }
 
-    // 2. Si viene con tripId, actualizar el trip a 'sos_triggered'
     if (dto.tripId) {
       await this.db
         .update(trips)
@@ -56,7 +55,6 @@ export class SosService {
         .where(and(eq(trips.id, dto.tripId), eq(trips.userId, userId)));
     }
 
-    // 3. Crear registro en sos_alerts
     const [alert] = await this.db
       .insert(sosAlerts)
       .values({
@@ -69,20 +67,18 @@ export class SosService {
       })
       .returning();
 
-    // 4. Obtener info del usuario (nombre + isPremium + mensaje custom)
+    // Obtener info del usuario (nombre + mensaje custom)
     const [user] = await this.db
       .select({
         fullName: users.fullName,
-        subscriptionStatus: users.subscriptionStatus,
         customSosMessage: users.customSosMessage,
       })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
-    const isPremium = user?.subscriptionStatus === 'active';
+    const isPremium = subscriptionStatus === 'active';
 
-    // 5. Construir el mensaje SOS
     const mapsLink = `https://maps.google.com/?q=${dto.latitude},${dto.longitude}`;
     const timestamp = new Date().toLocaleString('es-PE', {
       timeZone: 'America/Lima',
@@ -96,13 +92,13 @@ export class SosService {
             .replace('{hora}', timestamp)
         : `🚨 ALERTA DE EMERGENCIA: ${user?.fullName || 'Un usuario'} ha activado SOS en Firme. Ubicación: ${mapsLink} — Hora: ${timestamp}`;
 
-    // 6. Obtener contactos y notificar (respeta límite free/premium)
-    const userContacts = await this.contacts.getShareableContacts(userId);
+    const userContacts = await this.contacts.getShareableContacts(
+      userId,
+      subscriptionStatus,
+    );
 
-    // Notificar a cada contacto en paralelo
     const notificationResults = await Promise.allSettled(
       userContacts.map(async (contact) => {
-        // a. Enviar push (siempre, free y premium)
         const pushResult = contact.contactPushToken
           ? await this.notifications.sendPush({
               pushToken: contact.contactPushToken,
@@ -118,7 +114,6 @@ export class SosService {
             })
           : { success: false, error: 'Sin push token' };
 
-        // Registrar notificación push en DB
         await this.db.insert(sosNotifications).values({
           sosAlertId: alert.id,
           contactId: contact.id,
@@ -129,7 +124,6 @@ export class SosService {
           providerMessageId: (pushResult as any).ticketId || null,
         });
 
-        // b. SMS (solo premium)
         if (isPremium && contact.phone) {
           const smsResult = await this.notifications.sendSMS({
             to: contact.phone,
@@ -147,7 +141,6 @@ export class SosService {
           });
         }
 
-        // c. WhatsApp (solo premium)
         if (isPremium && contact.phone) {
           const waResult = await this.notifications.sendWhatsApp({
             to: contact.phone,
@@ -175,7 +168,6 @@ export class SosService {
       }),
     );
 
-    // 7. Resumir resultados
     const notified = notificationResults
       .filter((r) => r.status === 'fulfilled')
       .map((r) => (r as PromiseFulfilledResult<any>).value);
@@ -215,7 +207,6 @@ export class SosService {
       .where(eq(sosAlerts.id, sosId))
       .returning();
 
-    // Si el SOS estaba vinculado a un trip, restaurar el trip a 'active'
     if (updated.tripId) {
       const [trip] = await this.db
         .select({ status: trips.status })
@@ -247,7 +238,6 @@ export class SosService {
   async getSOSDetail(sosId: string, userId: string) {
     const alert = await this.findAlertOrFail(sosId, userId);
 
-    // Obtener todas las notificaciones enviadas
     const notifications = await this.db
       .select({
         id: sosNotifications.id,

@@ -24,17 +24,6 @@ export class ContactsService {
 
   // ---- helpers ----
 
-  private async resolveUser(firebaseUid: string) {
-    const result = await this.db
-      .select({ id: users.id, subscriptionStatus: users.subscriptionStatus })
-      .from(users)
-      .where(eq(users.firebaseUid, firebaseUid))
-      .limit(1);
-
-    if (!result[0]) throw new NotFoundException('Usuario no encontrado');
-    return result[0];
-  }
-
   private async findContactOrFail(
     contactId: string,
     userId: string,
@@ -54,10 +43,6 @@ export class ContactsService {
     return result[0];
   }
 
-  /**
-   * Busca si el teléfono corresponde a un usuario registrado.
-   * Retorna su userId de la DB, o null si no existe.
-   */
   async autoLinkUser(phone: string): Promise<string | null> {
     const result = await this.db
       .select({ id: users.id })
@@ -70,9 +55,7 @@ export class ContactsService {
 
   // ---- public methods ----
 
-  async getContacts(firebaseUid: string): Promise<ContactSelect[]> {
-    const { id: userId } = await this.resolveUser(firebaseUid);
-
+  async getContacts(userId: string): Promise<ContactSelect[]> {
     return this.db
       .select()
       .from(emergencyContacts)
@@ -81,7 +64,8 @@ export class ContactsService {
   }
 
   async createContact(
-    firebaseUid: string,
+    userId: string,
+    subscriptionStatus: string | null,
     data: {
       name: string;
       phone: string;
@@ -90,7 +74,6 @@ export class ContactsService {
       notifyOnTripStart?: boolean;
     },
   ): Promise<ContactSelect> {
-    const { id: userId, subscriptionStatus } = await this.resolveUser(firebaseUid);
     const isPremium = subscriptionStatus === 'active';
     const limit = isPremium ? PREMIUM_CONTACT_LIMIT : FREE_CONTACT_LIMIT;
 
@@ -130,7 +113,7 @@ export class ContactsService {
 
   async updateContact(
     contactId: string,
-    firebaseUid: string,
+    userId: string,
     data: Partial<
       Pick<
         ContactSelect,
@@ -138,10 +121,8 @@ export class ContactsService {
       >
     >,
   ): Promise<ContactSelect> {
-    const { id: userId } = await this.resolveUser(firebaseUid);
     await this.findContactOrFail(contactId, userId);
 
-    // Si cambia el teléfono, re-evaluar auto-link
     let linkedUserId: string | null | undefined;
     if (data.phone !== undefined) {
       linkedUserId = await this.autoLinkUser(data.phone);
@@ -160,8 +141,7 @@ export class ContactsService {
     return updated;
   }
 
-  async deleteContact(contactId: string, firebaseUid: string): Promise<void> {
-    const { id: userId } = await this.resolveUser(firebaseUid);
+  async deleteContact(contactId: string, userId: string): Promise<void> {
     await this.findContactOrFail(contactId, userId);
 
     await this.db
@@ -170,9 +150,9 @@ export class ContactsService {
   }
 
   async countContacts(
-    firebaseUid: string,
+    userId: string,
+    subscriptionStatus: string | null,
   ): Promise<{ count: number; limit: number; isPremium: boolean }> {
-    const { id: userId, subscriptionStatus } = await this.resolveUser(firebaseUid);
     const isPremium = subscriptionStatus === 'active';
 
     const result = await this.db
@@ -188,12 +168,11 @@ export class ContactsService {
   }
 
   async reorderContacts(
-    firebaseUid: string,
+    userId: string,
     order: { contactId: string; priority: number }[],
   ): Promise<void> {
     if (!order.length) return;
 
-    const { id: userId } = await this.resolveUser(firebaseUid);
     const contactIds = order.map((o) => o.contactId);
 
     const existing = await this.db
@@ -227,8 +206,10 @@ export class ContactsService {
    * Free = 3 contactos (prioridad 0, 1, 2). Premium = 5 contactos.
    * Usado por TripService y SosService.
    */
-  async getShareableContacts(firebaseUid: string): Promise<ContactSelect[]> {
-    const { id: userId, subscriptionStatus } = await this.resolveUser(firebaseUid);
+  async getShareableContacts(
+    userId: string,
+    subscriptionStatus: string | null,
+  ): Promise<ContactSelect[]> {
     const isPremium = subscriptionStatus === 'active';
     const limit = isPremium ? PREMIUM_CONTACT_LIMIT : FREE_CONTACT_LIMIT;
 

@@ -18,34 +18,23 @@ type ContactSelect = typeof emergencyContacts.$inferSelect;
 export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
 
-  /**
-   * GET /api/v1/contacts
-   * Listar todos los contactos del usuario autenticado, ordenados por prioridad.
-   */
   @Get()
-  getContacts(@CurrentUser('firebaseUid') firebaseUid: string) {
-    return this.contactsService.getContacts(firebaseUid);
+  getContacts(@CurrentUser('userId') userId: string) {
+    return this.contactsService.getContacts(userId);
   }
 
-  /**
-   * GET /api/v1/contacts/count
-   * Contar contactos del usuario (incluye límite y plan).
-   * NOTA: debe declararse antes de /:contactId para evitar conflictos de ruta.
-   */
   @Get('count')
-  countContacts(@CurrentUser('firebaseUid') firebaseUid: string) {
-    return this.contactsService.countContacts(firebaseUid);
+  countContacts(
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('subscriptionStatus') subscriptionStatus: string | null,
+  ) {
+    return this.contactsService.countContacts(userId, subscriptionStatus);
   }
 
-  /**
-   * POST /api/v1/contacts
-   * Crear un contacto de emergencia.
-   * Valida límite según plan (3 free / 5 premium).
-   * Auto-vincula si el teléfono coincide con un usuario registrado.
-   */
   @Post()
   createContact(
-    @CurrentUser('firebaseUid') firebaseUid: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('subscriptionStatus') subscriptionStatus: string | null,
     @Body()
     body: {
       name: string;
@@ -55,29 +44,20 @@ export class ContactsController {
       notifyOnTripStart?: boolean;
     },
   ) {
-    return this.contactsService.createContact(firebaseUid, body);
+    return this.contactsService.createContact(userId, subscriptionStatus, body);
   }
 
-  /**
-   * POST /api/v1/contacts/reorder
-   * Reordenar prioridades de contactos.
-   * NOTA: debe declararse antes de /:contactId para evitar conflictos de ruta.
-   */
   @Post('reorder')
   reorderContacts(
-    @CurrentUser('firebaseUid') firebaseUid: string,
+    @CurrentUser('userId') userId: string,
     @Body() body: { order: { contactId: string; priority: number }[] },
   ) {
-    return this.contactsService.reorderContacts(firebaseUid, body.order);
+    return this.contactsService.reorderContacts(userId, body.order);
   }
 
-  /**
-   * PATCH /api/v1/contacts/:contactId
-   * Actualizar campos de un contacto (name, phone, relationship, priority, notifyMethod).
-   */
   @Patch(':contactId')
   updateContact(
-    @CurrentUser('firebaseUid') firebaseUid: string,
+    @CurrentUser('userId') userId: string,
     @Param('contactId') contactId: string,
     @Body()
     body: Partial<
@@ -92,18 +72,14 @@ export class ContactsController {
       >
     >,
   ) {
-    return this.contactsService.updateContact(contactId, firebaseUid, body);
+    return this.contactsService.updateContact(contactId, userId, body);
   }
 
-  /**
-   * DELETE /api/v1/contacts/:contactId
-   * Eliminar un contacto. Verifica ownership.
-   */
   @Delete(':contactId')
   deleteContact(
-    @CurrentUser('firebaseUid') firebaseUid: string,
+    @CurrentUser('userId') userId: string,
     @Param('contactId') contactId: string,
   ) {
-    return this.contactsService.deleteContact(contactId, firebaseUid);
+    return this.contactsService.deleteContact(contactId, userId);
   }
 }

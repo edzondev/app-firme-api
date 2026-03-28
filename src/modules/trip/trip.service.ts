@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { and, count, desc, eq } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDB } from 'src/db/drizzle.provider';
-import { locationLogs, trips, users } from 'src/db/schema';
+import { locationLogs, trips } from 'src/db/schema';
 
 @Injectable()
 export class TripService {
@@ -18,48 +18,33 @@ export class TripService {
     this.logger = new Logger(TripService.name);
   }
 
-  async createTrip(userId: string, dto: typeof trips.$inferInsert) {
-    // TODO: refactorizar para que el AuthGuard ponga el userId de la DB en request.user, así evitamos esta consulta extra
-    const user = await this.db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.firebaseUid, userId))
-      .limit(1);
-
-    if (!user[0]) {
-      throw new NotFoundException('Usuario no encontrado.');
-    }
-    // Verificar que no tenga un viaje activo
-    const activeTrip = await this.getActiveTrip(user[0].id);
+  async createTrip(
+    userId: string,
+    dto: typeof trips.$inferInsert,
+    subscriptionStatus: string | null,
+  ) {
+    const activeTrip = await this.getActiveTrip(userId);
     if (activeTrip) {
       throw new BadRequestException(
         'Ya tienes un viaje activo. Termínalo antes de iniciar otro.',
       );
     }
 
-    // Si pide features premium, verificar suscripción
     if (dto.audioEnabled || dto.routeDeviationEnabled) {
-      const user = await this.db
-        .select({ subscriptionStatus: users.subscriptionStatus })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-
-      if (!user[0] || user[0].subscriptionStatus !== 'active') {
+      if (subscriptionStatus !== 'active') {
         throw new ForbiddenException(
           'Las funciones de audio y desvío de ruta requieren suscripción premium.',
         );
       }
     }
 
-    // Generar shareToken corto (8 caracteres)
     const shareToken = this.generateShareToken();
 
     const [trip] = await this.db
       .insert(trips)
       .values({
         id: crypto.randomUUID(),
-        userId: user[0].id,
+        userId,
         externalApp: dto.externalApp as any,
         driverPlate: dto.driverPlate || null,
         driverName: dto.driverName || null,
@@ -89,7 +74,6 @@ export class TripService {
   }
 
   async endTrip(tripId: string, userId: string) {
-    // Verificar que el trip existe y pertenece al usuario
     const trip = await this.findTripOrFail(tripId, userId);
 
     if (trip.status !== 'active') {
@@ -102,7 +86,6 @@ export class TripService {
       (endedAt.getTime() - startedAt.getTime()) / 1000,
     );
 
-    // Calcular distancia total recorrida
     const distanceMeters = await this.calculateDistance(tripId);
 
     const [updated] = await this.db
@@ -121,13 +104,12 @@ export class TripService {
 
   async getHistory(
     userId: string,
-    query: typeof trips.$inferSelect & { page?: number; limit?: number },
+    query: { page?: number; limit?: number },
     isPremium: boolean,
   ) {
     const page = query.page ?? 1;
     let limit = query.limit ?? 10;
 
-    // Free: máximo 10 viajes totales
     if (!isPremium) {
       limit = Math.min(limit, 10);
     }
@@ -141,7 +123,7 @@ export class TripService {
         .where(eq(trips.userId, userId))
         .orderBy(desc(trips.startedAt))
         .limit(limit)
-        .offset(isPremium ? offset : 0), // Free no tiene paginación real
+        .offset(isPremium ? offset : 0),
       this.db
         .select({ total: count() })
         .from(trips)
@@ -163,7 +145,6 @@ export class TripService {
   async getTripDetail(tripId: string, userId: string) {
     const trip = await this.findTripOrFail(tripId, userId);
 
-    // Obtener los location logs del viaje
     const logs = await this.db
       .select()
       .from(locationLogs)
@@ -218,9 +199,6 @@ export class TripService {
     return { tripId, rating };
   }
 
-  /**
-   * Buscar trip verificando que pertenezca al usuario. Lanza 404 si no existe.
-   */
   private async findTripOrFail(tripId: string, userId: string) {
     const result = await this.db
       .select()
@@ -235,18 +213,10 @@ export class TripService {
     return result[0];
   }
 
-  /**
-   * Genera un shareToken corto de 8 caracteres.
-   * Ejemplo: "a3f8b2c1"
-   */
   private generateShareToken(): string {
     return crypto.randomUUID().replace(/-/g, '').slice(0, 8);
   }
 
-  /**
-   * Calcula la distancia total del viaje sumando distancias entre puntos GPS consecutivos.
-   * Usa la fórmula de Haversine.
-   */
   private async calculateDistance(tripId: string): Promise<number> {
     const logs = await this.db
       .select({
@@ -272,16 +242,13 @@ export class TripService {
     return Math.round(totalMeters);
   }
 
-  /**
-   * Fórmula de Haversine: distancia en metros entre dos coordenadas GPS.
-   */
   private haversine(
     lat1: number,
     lon1: number,
     lat2: number,
     lon2: number,
   ): number {
-    const R = 6371000; // Radio de la Tierra en metros
+    const R = 6371000;
     const toRad = (deg: number) => (deg * Math.PI) / 180;
 
     const dLat = toRad(lat2 - lat1);

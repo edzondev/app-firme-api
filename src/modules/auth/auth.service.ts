@@ -1,11 +1,11 @@
-import { Inject, Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDB } from 'src/db/drizzle.provider';
 import { users } from 'src/db/schema';
 
 @Injectable()
 export class AuthService {
-  constructor(@Inject(DRIZZLE) private db: DrizzleDB) { }
+  constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
   /**
    * Crea un usuario nuevo o retorna el existente.
@@ -17,7 +17,6 @@ export class AuthService {
     fullName: string;
     phone?: string;
   }) {
-    // Verificar si ya existe
     const existing = await this.db
       .select()
       .from(users)
@@ -28,7 +27,6 @@ export class AuthService {
       return existing[0];
     }
 
-    // Crear nuevo usuario
     const [newUser] = await this.db
       .insert(users)
       .values({
@@ -43,14 +41,13 @@ export class AuthService {
   }
 
   /**
-   * Buscar usuario por Firebase UID
+   * Buscar usuario por su UUID interno (PK).
    */
-  async getUserByFirebaseUid(firebaseUid: string) {
-    console.log('Buscando usuario con Firebase UID:', firebaseUid);
+  async getUserById(userId: string) {
     const result = await this.db
       .select()
       .from(users)
-      .where(eq(users.firebaseUid, firebaseUid))
+      .where(eq(users.id, userId))
       .limit(1);
 
     if (result.length === 0) {

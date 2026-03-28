@@ -18,9 +18,9 @@ type UpdateSettingsInput = {
 
 @Injectable()
 export class UsersService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) { }
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  async updateProfile(firebaseUid: string, data: UpdateProfileInput) {
+  async updateProfile(userId: string, data: UpdateProfileInput) {
     const [user] = await this.db
       .update(users)
       .set({
@@ -29,7 +29,7 @@ export class UsersService {
         ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl } : {}),
         updatedAt: new Date(),
       })
-      .where(and(eq(users.firebaseUid, firebaseUid), eq(users.isDeleted, false)))
+      .where(and(eq(users.id, userId), eq(users.isDeleted, false)))
       .returning();
 
     if (!user) {
@@ -39,7 +39,7 @@ export class UsersService {
     return user;
   }
 
-  async updateSettings(firebaseUid: string, data: UpdateSettingsInput) {
+  async updateSettings(userId: string, data: UpdateSettingsInput) {
     const [user] = await this.db
       .update(users)
       .set({
@@ -55,7 +55,7 @@ export class UsersService {
           : {}),
         updatedAt: new Date(),
       })
-      .where(and(eq(users.firebaseUid, firebaseUid), eq(users.isDeleted, false)))
+      .where(and(eq(users.id, userId), eq(users.isDeleted, false)))
       .returning();
 
     if (!user) {
@@ -65,14 +65,14 @@ export class UsersService {
     return user;
   }
 
-  async updatePushToken(firebaseUid: string, token: string): Promise<void> {
+  async updatePushToken(userId: string, token: string): Promise<void> {
     const [user] = await this.db
       .update(users)
       .set({
         expoPushToken: token,
         updatedAt: new Date(),
       })
-      .where(and(eq(users.firebaseUid, firebaseUid), eq(users.isDeleted, false)))
+      .where(and(eq(users.id, userId), eq(users.isDeleted, false)))
       .returning({ id: users.id });
 
     if (!user) {
@@ -80,14 +80,14 @@ export class UsersService {
     }
   }
 
-  async updateSosMessage(firebaseUid: string, message: string): Promise<void> {
+  async updateSosMessage(userId: string, message: string): Promise<void> {
     const [user] = await this.db
       .update(users)
       .set({
         customSosMessage: message,
         updatedAt: new Date(),
       })
-      .where(and(eq(users.firebaseUid, firebaseUid), eq(users.isDeleted, false)))
+      .where(and(eq(users.id, userId), eq(users.isDeleted, false)))
       .returning({ id: users.id });
 
     if (!user) {
@@ -95,14 +95,14 @@ export class UsersService {
     }
   }
 
-  async softDelete(firebaseUid: string): Promise<void> {
+  async softDelete(userId: string): Promise<void> {
     const [user] = await this.db
       .update(users)
       .set({
         isDeleted: true,
         updatedAt: new Date(),
       })
-      .where(and(eq(users.firebaseUid, firebaseUid), eq(users.isDeleted, false)))
+      .where(and(eq(users.id, userId), eq(users.isDeleted, false)))
       .returning({ id: users.id });
 
     if (!user) {
@@ -110,29 +110,13 @@ export class UsersService {
     }
   }
 
-  async getSubscriptionStatus(firebaseUid: string): Promise<{
+  getSubscriptionStatus(subscriptionStatus: string | null): {
     isPremium: boolean;
-    expiresAt: Date | null;
-    store: string | null;
-  }> {
-    const [user] = await this.db
-      .select({
-        subscriptionStatus: users.subscriptionStatus,
-        subscriptionExpiresAt: users.subscriptionExpiresAt,
-        subscriptionStore: users.subscriptionStore,
-      })
-      .from(users)
-      .where(and(eq(users.firebaseUid, firebaseUid), eq(users.isDeleted, false)))
-      .limit(1);
-
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
+    status: string;
+  } {
     return {
-      isPremium: user.subscriptionStatus === 'active',
-      expiresAt: user.subscriptionExpiresAt ?? null,
-      store: user.subscriptionStore ?? null,
+      isPremium: subscriptionStatus === 'active',
+      status: subscriptionStatus ?? 'free',
     };
   }
 }
