@@ -117,7 +117,12 @@ export class ContactsService {
     data: Partial<
       Pick<
         ContactSelect,
-        'name' | 'phone' | 'relationship' | 'priority' | 'notifyMethod' | 'notifyOnTripStart'
+        | 'name'
+        | 'phone'
+        | 'relationship'
+        | 'priority'
+        | 'notifyMethod'
+        | 'notifyOnTripStart'
       >
     >,
   ): Promise<ContactSelect> {
@@ -203,7 +208,7 @@ export class ContactsService {
 
   /**
    * Retorna los contactos que recibirán la ubicación durante un viaje.
-   * Free = 3 contactos (prioridad 0, 1, 2). Premium = 5 contactos.
+   * Free = 3 coqntactos (prioridad 0, 1, 2). Premium = 5 contactos.
    * Usado por TripService y SosService.
    */
   async getShareableContacts(
