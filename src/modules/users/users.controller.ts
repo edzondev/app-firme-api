@@ -4,7 +4,7 @@ import { CurrentUser } from 'src/common/decorators/current-user/current-user.dec
 
 @Controller('/users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Patch('/me')
   updateProfile(

@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import { DRIZZLE, type DrizzleDB } from 'src/db/drizzle.provider';
-import { users } from 'src/db/schema';
+import { DRIZZLE, type DrizzleDB } from '../../db/drizzle.provider';
+import { emergencyContacts, users } from '../../db/schema';
 
 type UpdateProfileInput = {
   fullName?: string;
@@ -49,7 +49,9 @@ export class UsersService {
         ...(data.audioQuality !== undefined
           ? { settingsAudioQuality: data.audioQuality }
           : {}),
-        ...(data.sosDelay !== undefined ? { settingsSosDelay: data.sosDelay } : {}),
+        ...(data.sosDelay !== undefined
+          ? { settingsSosDelay: data.sosDelay }
+          : {}),
         ...(data.notificationsEnabled !== undefined
           ? { settingsNotificationsEnabled: data.notificationsEnabled }
           : {}),
@@ -78,6 +80,13 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
+
+    // Sync token to all emergency_contacts rows where this user is linked,
+    // so SosService can read it directly from contact.contactPushToken
+    await this.db
+      .update(emergencyContacts)
+      .set({ contactPushToken: token, updatedAt: new Date() })
+      .where(eq(emergencyContacts.linkedUserId, userId));
   }
 
   async updateSosMessage(userId: string, message: string): Promise<void> {

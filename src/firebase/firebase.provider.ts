@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 
 @Injectable()
 export class FirebaseAdminProvider implements OnModuleInit {
-  private app: admin.app.App;
+  private app!: admin.app.App;
 
   onModuleInit() {
     // Si ya está inicializado (hot reload), no reinicializar
