@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -13,8 +14,21 @@ import { DRIZZLE, type DrizzleDB } from 'src/db/drizzle.provider';
 import { users } from 'src/db/schema';
 import { FirebaseAdminProvider } from 'src/firebase/firebase.provider';
 
+interface CachedUser {
+  id: string | null;
+  subscriptionStatus: string | null;
+}
+
+const USER_CACHE_TTL_MS = 60_000; // 60 seconds
+
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
+  private readonly logger = new Logger(FirebaseAuthGuard.name);
+  private readonly userCache = new Map<
+    string,
+    { data: CachedUser; expiresAt: number }
+  >();
+
   constructor(
     private readonly firebase: FirebaseAdminProvider,
     private readonly reflector: Reflector,
@@ -22,6 +36,9 @@ export class FirebaseAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // WebSocket gateways handle their own auth in handleConnection()
+    if (context.getType() !== 'http') return true;
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -39,24 +56,20 @@ export class FirebaseAuthGuard implements CanActivate {
 
     try {
       const decodedToken = await this.firebase.verifyToken(token);
+      const uid = decodedToken.uid;
 
-      const [dbUser] = await this.db
-        .select({
-          id: users.id,
-          subscriptionStatus: users.subscriptionStatus,
-        })
-        .from(users)
-        .where(eq(users.firebaseUid, decodedToken.uid))
-        .limit(1);
+      this.logger.debug(`Token verified for UID: ${uid}`);
+
+      const dbUser = await this.getOrCacheUser(uid);
 
       const authUser: AuthUser = {
-        userId: dbUser?.id ?? null,
-        firebaseUid: decodedToken.uid,
+        userId: dbUser.id,
+        firebaseUid: uid,
         email: decodedToken.email,
         name: decodedToken.name,
         picture: decodedToken.picture,
         emailVerified: decodedToken.email_verified,
-        subscriptionStatus: dbUser?.subscriptionStatus ?? null,
+        subscriptionStatus: dbUser.subscriptionStatus,
       };
 
       request.user = authUser;
@@ -65,5 +78,35 @@ export class FirebaseAuthGuard implements CanActivate {
     } catch (error) {
       throw new UnauthorizedException('Token inválido o expirado');
     }
+  }
+
+  private async getOrCacheUser(firebaseUid: string): Promise<CachedUser> {
+    const now = Date.now();
+    const cached = this.userCache.get(firebaseUid);
+
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+
+    const [dbUser] = await this.db
+      .select({
+        id: users.id,
+        subscriptionStatus: users.subscriptionStatus,
+      })
+      .from(users)
+      .where(eq(users.firebaseUid, firebaseUid))
+      .limit(1);
+
+    const data: CachedUser = {
+      id: dbUser?.id ?? null,
+      subscriptionStatus: dbUser?.subscriptionStatus ?? null,
+    };
+
+    this.userCache.set(firebaseUid, {
+      data,
+      expiresAt: now + USER_CACHE_TTL_MS,
+    });
+
+    return data;
   }
 }

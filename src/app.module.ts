@@ -14,9 +14,12 @@ import { TripModule } from './modules/trip/trip.module';
 import { SosModule } from './modules/sos/sos.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UsersModule } from './modules/users/users.module';
+import { RecordingsModule } from './modules/recordings/recordings.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
@@ -31,6 +34,7 @@ import { UsersModule } from './modules/users/users.module';
     SosModule,
     NotificationsModule,
     UsersModule,
+    RecordingsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -45,4 +49,4 @@ import { UsersModule } from './modules/users/users.module';
     AppService,
   ],
 })
-export class AppModule { }
+export class AppModule {}

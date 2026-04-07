@@ -35,7 +35,7 @@ export class TrackingGateway
   private readonly logger = new Logger(TrackingGateway.name);
 
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   constructor(
     private readonly buffer: LocationBuffer,
